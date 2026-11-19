@@ -1,6 +1,16 @@
 # CastAirPlay
 
-A new Flutter project.
+CastAirPlay is a Flutter screen-mirroring app for Android, iOS, and Windows.
+The current Wi-Fi mirroring path and release build instructions are documented
+in this repository.
+
+## AiCam feasibility
+
+The AiCam phone-as-webcam feature is in its feasibility phase; it is not
+implemented in the app yet. Read the [protocol](docs/PROTOCOL.md),
+[security design](docs/SECURITY.md), and
+[Phase 0 spike results](docs/SPIKE_RESULTS.md) before treating its proposed
+transport or virtual-camera backends as available.
 
 ## Getting Started
 
