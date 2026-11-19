@@ -1,4 +1,4 @@
-import 'package:cast_bridge/main.dart';
+import 'package:cast_airplay/main.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,7 +7,7 @@ void main() {
   testWidgets('shows Wi-Fi mirroring and labels unfinished connection modes', (
     tester,
   ) async {
-    await tester.pumpWidget(const CastBridgeApp());
+    await tester.pumpWidget(const CastAirPlayApp());
 
     expect(find.text('WebRTC over Wi-Fi'), findsOneWidget);
     expect(find.byKey(const ValueKey('mode-wifi')), findsOneWidget);
@@ -28,7 +28,7 @@ void main() {
   testWidgets('shows receiver session controls on Windows', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
 
-    await tester.pumpWidget(const CastBridgeApp());
+    await tester.pumpWidget(const CastAirPlayApp());
 
     expect(
       find.byKey(const ValueKey('receiver-session-button')),
@@ -42,7 +42,7 @@ void main() {
   testWidgets('shows receiver connection fields on Android', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
-    await tester.pumpWidget(const CastBridgeApp());
+    await tester.pumpWidget(const CastAirPlayApp());
 
     expect(find.text('Connect to Windows'), findsOneWidget);
     expect(

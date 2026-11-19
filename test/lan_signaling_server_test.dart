@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cast_bridge/lan_signaling_server.dart';
+import 'package:cast_airplay/lan_signaling_server.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

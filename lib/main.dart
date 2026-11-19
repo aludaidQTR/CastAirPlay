@@ -7,16 +7,16 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'mirror_service.dart';
 
 void main() {
-  runApp(const CastBridgeApp());
+  runApp(const CastAirPlayApp());
 }
 
-class CastBridgeApp extends StatelessWidget {
-  const CastBridgeApp({super.key});
+class CastAirPlayApp extends StatelessWidget {
+  const CastAirPlayApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CastBridge',
+      title: 'CastAirPlay',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -158,7 +158,7 @@ class _CastHomePageState extends State<CastHomePage> {
         ),
         const SizedBox(width: 12),
         Text(
-          'CastBridge',
+          'CastAirPlay',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
             color: const Color(0xFF17233C),
