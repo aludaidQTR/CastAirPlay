@@ -1,0 +1,48 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows x64 app
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Windows app
+        run: flutter build windows --release
+
+      - name: Package Windows app
+        shell: pwsh
+        run: Compress-Archive -Path 'build\windows\x64\runner\Release\*' -DestinationPath 'build\castbridge-windows-x64.zip' -CompressionLevel Optimal
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: castbridge-windows-x64
+          path: build/castbridge-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 7

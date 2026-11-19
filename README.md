@@ -26,3 +26,10 @@ signing. It runs on pushes, pull requests, or manual dispatch. The unsigned
 The project must be pushed to a GitHub repository before Actions can run. An
 Apple Developer signing setup is required to produce an installable IPA or
 submit a build to the App Store.
+
+## Windows cloud build
+
+The GitHub Actions workflow in `.github/workflows/windows-build.yml` uses a
+hosted Windows runner to analyze, test, and build the x64 desktop app. The
+packaged `castbridge-windows-x64` artifact contains the app and its runtime
+files and can be downloaded from the workflow run.
