@@ -43,6 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/spikes/usb_probe/UsbmuxProbe/bin/
+/spikes/usb_probe/UsbmuxProbe/obj/
+/spikes/usb_probe/android/.gradle/
+/spikes/usb_probe/android/app/build/
 
 # Widget Preview related
 .widget_preview/

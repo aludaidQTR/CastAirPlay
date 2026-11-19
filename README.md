@@ -11,6 +11,8 @@ implemented in the app yet. Read the [protocol](docs/PROTOCOL.md),
 [security design](docs/SECURITY.md), and
 [Phase 0 spike results](docs/SPIKE_RESULTS.md) before treating its proposed
 transport or virtual-camera backends as available.
+For the full status, rebuild instructions, and next work sequence, see the
+[PC handoff](docs/HANDOFF.md).
 
 ## Getting Started
 

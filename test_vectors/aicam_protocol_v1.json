@@ -1,0 +1,69 @@
+{
+  "protocolVersion": 1,
+  "framing": {
+    "type": 1,
+    "bodyHex": "74657374",
+    "wireHex": "000000050174657374"
+  },
+  "nonceAndAad": {
+    "direction": 0,
+    "counter": 42,
+    "nonceHex": "41494300000000000000002a",
+    "frameLength": 45,
+    "type": 17,
+    "aadHex": "0000002d1141494300000000000000002a"
+  },
+  "sha256": {
+    "inputHex": "616263",
+    "digestHex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  },
+  "hmacSha256": {
+    "source": "RFC 4231 test case 1",
+    "keyHex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+    "inputHex": "4869205468657265",
+    "digestHex": "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+  },
+  "hkdfSha256": {
+    "source": "RFC 5869 test case 1",
+    "ikmHex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+    "saltHex": "000102030405060708090a0b0c",
+    "infoHex": "f0f1f2f3f4f5f6f7f8f9",
+    "outputLength": 42,
+    "outputHex": "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+  },
+  "aes256Gcm": {
+    "source": "NIST AES-256-GCM single-block known-answer test",
+    "keyHex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "nonceHex": "000000000000000000000000",
+    "aadHex": "",
+    "plaintextHex": "00000000000000000000000000000000",
+    "ciphertextHex": "cea7403d4d606b6e074ec5d3baf39d18",
+    "tagHex": "d0d1c8a799996bf0265b98b5d48ab919"
+  },
+  "encryptedFrame": {
+    "direction": 0,
+    "counter": 0,
+    "type": 21,
+    "keyHex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "plaintextHex": "70696e67",
+    "bodyHex": "414943000000000000000000ec1a8a9ca4ec00e531a96e73ccd1a8c3d9d21ed4"
+  },
+  "receiveCounter": {
+    "accepted": [0, 1],
+    "rejected": [1, 3, 0]
+  },
+  "handshake": {
+    "authProofStage": 1,
+    "authSuccessResult": 0,
+    "authSuccessReasonCode": 0,
+    "phoneHelloFrameHex": "0000007b0100010101000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5000550686f6e65000550726f626501000000010000",
+    "receiverHelloFrameHex": "0000007a0100010201202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f047cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc4766997807775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d100025043000757696e646f777303010203040000",
+    "transcriptHashHex": "fa7d22c281588fc03129e283adf202e42549a667892afa833630f94f4d4d3d43",
+    "authSecretHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "phoneProofHex": "82d41b2103b2fc399f72b485b9eae1ab644493b34e0f7bb0108f892339228173",
+    "receiverProofHex": "4c28adbebc89878b750f0864b06ca835fa5f04be6cbd6c478dd130984e355b73",
+    "ecdhSecretHex": "7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978",
+    "phoneToPcKeyHex": "98043ef2297b447377e93ef9c451fb7089e40781a80e7dfe5eb00df27fee5028",
+    "pcToPhoneKeyHex": "4191847d7b155910301c3fd620e56c95ff2a4e187e85ff2b8e88d13374382f63"
+  }
+}

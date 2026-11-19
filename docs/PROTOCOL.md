@@ -92,11 +92,13 @@ independent of which side opened the TCP connection.
 3. If either version is not 1, send an `AUTH` rejection with an
    `INCOMPATIBLE_VERSION` reason and close. Unknown enum values are rejected.
 4. The phone sends `AUTH` containing
-   `HMAC-SHA256(authSecret, "AiCam/v1/PHONE" || transcriptHash)`. The PC verifies
-   it and sends `AUTH` containing
-   `HMAC-SHA256(authSecret, "AiCam/v1/RECEIVER" || transcriptHash)`. The phone
-   verifies the PC proof. `authSecret` is the QR token for `PAIR` or the
-   previously provisioned device secret for `CONNECT`.
+   `stage=0x01`, `result=0`, `reasonCode=0`, then
+   `HMAC-SHA256(authSecret, "AiCam/v1/PHONE" || transcriptHash)`. The PC
+   verifies it and sends an `AUTH` with the same stage/result/reason fields
+   followed by `HMAC-SHA256(authSecret, "AiCam/v1/RECEIVER" ||
+   transcriptHash)`. The phone verifies the PC proof.
+   `authSecret` is the 32-byte QR token for `PAIR` or the previously
+   provisioned 32-byte device secret for `CONNECT`.
 5. `transcriptHash` is SHA-256 over the exact framed `HELLO` messages in
    phone-then-PC order, prefixed with the ASCII context
    `AiCam/v1/handshake`. This binds both roles, ephemeral keys, nonces, and
@@ -117,9 +119,14 @@ independent of which side opened the TCP connection.
    to `CONFIG` only after both sides confirm their state.
 
 Each AUTH payload starts with `u8 stage`, `u8 result`, `u16 reasonCode`, then
-stage-specific bytes. The rejection reason is safe to show to the user and
-must never include secrets. Unknown stages and invalid state transitions are
-rejected.
+stage-specific bytes. Stage values are `0x01` for the plaintext role-bound
+key proof, `0x02` for encrypted `PAIR_ACCEPT`, `0x03` for encrypted
+`PAIR_STORED`, `0x04` for encrypted `CONNECT_ACCEPT`, and `0x7f` for a
+rejection. A successful key-proof payload has result and reason code zero,
+followed by exactly 32 proof bytes. Pair/connect confirmations are encrypted
+and their bodies are defined by their associated state transition. The
+rejection reason is safe to show to the user and must never include secrets.
+Unknown stages and invalid state transitions are rejected.
 
 ## Message types
 
@@ -178,7 +185,10 @@ decode duration through `STATS`; the phone may lower bitrate or fps. Start at
 
 ## Test vectors
 
-Cross-language JSON vectors live in `test_vectors/`. They cover the exact
-handshake transcript, HKDF output, nonce/AAD encoding, ciphertext/tag, and
-counter-replay rejection. Any protocol or cryptographic change requires
-updating the vectors and all four implementations together.
+Cross-language JSON vectors live in `test_vectors/`. They cover HELLO wire
+encoding, the exact handshake transcript, role-bound proof values, session
+key derivation, HKDF output, nonce/AAD encoding, ciphertext/tag, and
+counter-replay rejection. The Windows C++ tests execute these known answers;
+other language implementations must consume the same fixtures. Any protocol
+or cryptographic change requires updating the vectors and all implementations
+together.
