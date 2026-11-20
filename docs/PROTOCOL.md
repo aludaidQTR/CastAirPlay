@@ -90,7 +90,9 @@ independent of which side opened the TCP connection.
    (each at most 128 UTF-8 bytes), platform (`u8`), capabilities (`u32`), and
    the stable device ID for `CONNECT` (empty for `PAIR`).
 3. If either version is not 1, send an `AUTH` rejection with an
-   `INCOMPATIBLE_VERSION` reason and close. Unknown enum values are rejected.
+   `INCOMPATIBLE_VERSION` reason and close. `AUTH` rejection has
+   `stage=0x7f`, `result=1`, and a reason code; reason code `0x0001` means
+   incompatible protocol version. Unknown enum values are rejected.
 4. The phone sends `AUTH` containing
    `stage=0x01`, `result=0`, `reasonCode=0`, then
    `HMAC-SHA256(authSecret, "AiCam/v1/PHONE" || transcriptHash)`. The PC
@@ -109,11 +111,13 @@ independent of which side opened the TCP connection.
    `AiCam/v1/session || transcriptHash`. The first 32 bytes are the
    phone-to-PC AES key; the next 32 are the PC-to-phone AES key.
 7. All following messages use encrypted framing. For `PAIR`, PC sends an
-   encrypted `AUTH` `PAIR_ACCEPT` containing device ID and the new 32-byte
-   device secret. Phone durably stores them, then sends encrypted `AUTH`
-   `PAIR_STORED`. Only then does the PC persist the trust record and consume
-   the QR token. On storage failure or timeout, discard the pending secret and
-   leave the QR usable until expiry.
+   encrypted `AUTH` `PAIR_ACCEPT`. Its plaintext is `u8 stage=0x02`,
+   `u8 result=0`, `u16 reasonCode=0`, `u16 deviceIdLength`, a UTF-8 device ID
+   (1-128 bytes), and the new 32-byte device secret. The phone durably stores
+   them, then sends encrypted `AUTH` `PAIR_STORED`, whose plaintext is exactly
+   `u8 stage=0x03`, `u8 result=0`, `u16 reasonCode=0`. Only then does the PC
+   persist the trust record and consume the QR token. On storage failure or
+   timeout, discard the pending secret and leave the QR usable until expiry.
 8. For `CONNECT`, the PC checks that the device ID exists and is not revoked,
    then sends encrypted `AUTH` `CONNECT_ACCEPT`. Pairing or connection proceeds
    to `CONFIG` only after both sides confirm their state.
@@ -123,10 +127,9 @@ stage-specific bytes. Stage values are `0x01` for the plaintext role-bound
 key proof, `0x02` for encrypted `PAIR_ACCEPT`, `0x03` for encrypted
 `PAIR_STORED`, `0x04` for encrypted `CONNECT_ACCEPT`, and `0x7f` for a
 rejection. A successful key-proof payload has result and reason code zero,
-followed by exactly 32 proof bytes. Pair/connect confirmations are encrypted
-and their bodies are defined by their associated state transition. The
-rejection reason is safe to show to the user and must never include secrets.
-Unknown stages and invalid state transitions are rejected.
+followed by exactly 32 proof bytes. Pair/connect confirmation bodies are
+encrypted. Unknown stages and invalid state transitions are rejected.
+Rejection reasons are safe to show to the user and must never include secrets.
 
 ## Message types
 

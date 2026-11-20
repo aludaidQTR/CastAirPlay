@@ -30,11 +30,12 @@ add_library(aicam_core SHARED
   src/protocol.cpp
   src/crypto.cpp
   src/handshake.cpp
-  src/session_cipher.cpp)
+  src/session_cipher.cpp
+  src/receiver.cpp)
 target_include_directories(aicam_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_definitions(aicam_core PRIVATE AICAM_CORE_BUILD UNICODE _UNICODE NOMINMAX)
 target_compile_options(aicam_core PRIVATE /W4 /EHsc)
-target_link_libraries(aicam_core PRIVATE bcrypt)
+target_link_libraries(aicam_core PRIVATE bcrypt ws2_32)
 set_target_properties(aicam_core PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 add_library(aicam_dsvcam SHARED src/dshow_filter.cpp src/aicam_dsvcam.def)

@@ -180,21 +180,27 @@ ffmpeg -f rawvideo -pixel_format nv12 -video_size 320x240 -i frame.nv12 -frames:
 
 The Windows x64 and x86 native foundations both build as `aicam_core.dll`
 and `aicam_dsvcam.dll`. CTest passes 3/3 on each architecture: shared-memory
-publication/stale-heartbeat checks; CNG
-crypto, framed protocol, and shared JSON handshake vectors; and an
-authenticated P-256/HKDF/AES-GCM PING/PONG exchange between synthetic peers
-over loopback TCP. The testsender does not expose a LAN listener, pairing QR,
-Wi-Fi discovery, or phone transport, so this is not end-to-end Wi-Fi
+publication/stale-heartbeat checks; CNG crypto, framed protocol, and shared
+JSON handshake vectors; and a loopback TCP PAIR exchange through the native
+receiver session. That exchange checks transcript-bound authentication,
+encrypted delivery of a new device credential, encrypted `PAIR_STORED`
+confirmation before persistence/token consumption, and rejection of a
+mismatched token before persistence. x64 and x86 CTest runs should be
+sequential: their shared-memory tests use the same per-user named mapping.
+This tests the session on loopback but does not expose a LAN listener, pairing
+QR, Wi-Fi discovery, or phone transport, so it is not end-to-end Wi-Fi
 verification. x86 tests do not imply that the 32-bit filter has been
 registered or consumed by a 32-bit camera application.
 
 The protocol layer includes HELLO encoding/decoding, transcript hashing,
-role-bound AUTH proofs, ephemeral P-256 key agreement, and directional session
-keys. The production pairing state machine, TCP receiver, Media Foundation
-streaming decoder integration, libyuv processing, latency governor, native
-shared-memory video sink, adb/usbmuxd managers with fake-server tests, and
-Flutter AiCam Windows interface remain incomplete. No phone or Windows 11
-environment was available for device or MF-camera validation.
+role-bound AUTH proofs, ephemeral P-256 key agreement, directional session
+keys, and the bounded single-session PAIR state machine. The listener/service
+lifecycle, LAN binding, QR and token management, durable DPAPI device store,
+CONNECT/revocation flow, Media Foundation streaming decoder integration,
+libyuv processing, latency governor, native shared-memory video sink,
+adb/usbmuxd managers with fake-server tests, and Flutter AiCam Windows
+interface remain incomplete. No phone or Windows 11 environment was
+available for device or MF-camera validation.
 
 The earlier softcam source review used
 <https://github.com/jozeta/camtest> (MIT) and

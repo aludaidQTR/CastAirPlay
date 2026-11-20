@@ -1,6 +1,6 @@
 # CastAirPlay PC handoff
 
-Updated: 2026-11-19
+Updated: 2026-11-20
 
 ## What this project is
 
@@ -36,8 +36,15 @@ flow exists.
 - `aicam_core.dll` contains CNG crypto, protocol framing, HELLO encoding,
   transcript hashing, role-bound AUTH proofs, P-256 key agreement, and
   directional session-key derivation. `aicam_testsender` verifies the
-  synthetic authenticated/encrypted PING/PONG exchange over loopback TCP; it
-  is not a LAN receiver or phone sender.
+  native pairing session over loopback TCP: the receiver authenticates the
+  phone, provisions a device ID and secret, waits for encrypted
+  `PAIR_STORED`, then invokes the trusted-device persistence callback and
+  consumes the one-time token. A mismatched token is rejected before device
+  persistence. The session enforces a five-second handshake deadline and
+  bounded frame sizes.
+- The receiver pairing session is a core primitive, not an integrated
+  service: there is no listener lifecycle, QR generation/display, pairing
+  token UI, DPAPI trusted-device store, or CONNECT/revocation flow yet.
 - Native x64 and x86 Release builds both succeed. CTest passes 3/3 on each:
   shared-memory checks, crypto/protocol/shared handshake vectors, and the
   loopback exchange. The x86 filter has not been registered or tested in a
@@ -68,8 +75,9 @@ flow exists.
 
 ### Not started or incomplete
 
-- Production TCP/Wi-Fi receiver, discovery, QR pairing, device trust/revocation,
-  DPAPI persistence, and full handshake/state machine.
+- TCP listener lifecycle and LAN interface binding around the new pairing
+  session, discovery, QR pairing/token management, DPAPI persistence,
+  CONNECT/revocation, and remaining receiver state transitions.
 - Streaming Media Foundation decoder integration in `aicam_core.dll`,
   libyuv image processing, latency governor, and native shared-memory video
   sink.
@@ -84,9 +92,11 @@ flow exists.
 
 ## Next work, in order
 
-1. Implement the production Windows TCP receiver and pairing/authentication
-   state machine; replace the test-only loopback exchange with tests against
-   the real receiver.
+1. Complete the Windows TCP receiver service around `RunPairingSession`:
+   listener lifecycle, token generation/expiry and QR payload, one-active-
+   phone enforcement, user-scope DPAPI persistence, CONNECT/revocation, and
+   service-level tests. The session-level pairing/authentication primitive
+   and loopback tests are implemented.
 2. Integrate the Media Foundation streaming decoder, pinned libyuv processing,
    latency/backpressure handling, and shared-memory frame sink. Keep the
    DirectShow and future Media Foundation backends on the same mapping
@@ -160,6 +170,10 @@ $cmake = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Comm
 & $cmake --build build\native-x86 --config Release
 & (Join-Path (Split-Path $cmake) 'ctest.exe') --test-dir build\native-x86 -C Release --output-on-failure
 ```
+
+The x64 loopback test now exercises the receiver's PAIR exchange and confirms
+an invalid token is rejected before persistence. It uses synthetic test
+credentials and does not expose a production listener or create a usable QR.
 
 `aicam_dsvcam.dll` registration is a per-machine elevated operation. Only
 register it when intentionally testing the filter; run these from an elevated

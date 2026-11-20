@@ -3,9 +3,11 @@
 
 #include "aicam/crypto.h"
 #include "aicam/handshake.h"
+#include "aicam/receiver.h"
 #include "aicam/session_cipher.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -177,69 +179,20 @@ bool MakeHello(aicam::protocol::Role role,
 }
 
 bool RunReceiverHandshake(SOCKET socket,
-                          std::span<const std::uint8_t> auth_secret) {
-  using namespace aicam::protocol;
-  Frame phone_frame;
-  std::vector<std::uint8_t> phone_wire;
-  if (!ReceiveFrame(socket, &phone_frame, &phone_wire) ||
-      phone_frame.type != 0x01) {
-    return false;
-  }
-  Hello phone;
-  std::string parse_error;
-  if (!DecodeHello(phone_frame.body, &phone, &parse_error) ||
-      phone.version != kVersion || phone.role != Role::kSender ||
-      phone.action != Action::kPair) {
-    return false;
-  }
-
-  EphemeralP256KeyPair receiver_key;
-  Hello receiver;
-  receiver.role = Role::kReceiver;
-  receiver.device_name = "Local Test PC";
-  receiver.model = "AiCam Test Receiver";
-  receiver.platform = 3;
-  std::vector<std::uint8_t> receiver_wire;
-  std::wstring crypto_error;
-  if (!receiver_key.Generate(&crypto_error) ||
-      !MakeHello(Role::kReceiver, receiver_key, &receiver) ||
-      !MakeHelloFrame(receiver, &receiver_wire) ||
-      !SendAll(socket, receiver_wire.data(), receiver_wire.size())) {
-    return false;
-  }
-
-  std::array<std::uint8_t, aicam::crypto::kSha256Size> transcript_hash{};
-  if (!HashHandshakeTranscript(phone_wire, receiver_wire, &transcript_hash,
-                               &crypto_error)) {
-    return false;
-  }
-  SessionKeys keys;
-  if (!DeriveSessionKeys(receiver_key, phone.public_key, auth_secret,
-                         transcript_hash, &keys, &crypto_error)) {
-    return false;
-  }
-
-  Frame proof;
-  if (!ReceiveFrame(socket, &proof) ||
-      !VerifyAuthProof(proof, AuthRole::kPhone, auth_secret, transcript_hash) ||
-      !MakeAuthProofFrame(AuthRole::kReceiver, auth_secret, transcript_hash,
-                          &proof) ||
-      !SendFrame(socket, proof)) {
-    return false;
-  }
-
-  SessionCipher session(keys.pc_to_phone, keys.phone_to_pc, 1, 0);
-  Frame encrypted;
-  std::vector<std::uint8_t> plaintext;
-  if (!ReceiveFrame(socket, &encrypted) ||
-      !session.Decrypt(encrypted, &plaintext, &crypto_error) ||
-      encrypted.type != 0x15 ||
-      plaintext != std::vector<std::uint8_t>{'p', 'i', 'n', 'g'}) {
-    return false;
-  }
-  const std::vector<std::uint8_t> response{'p', 'o', 'n', 'g'};
-  return session.Encrypt(0x15, response, &encrypted, &crypto_error) &&
-         SendFrame(socket, encrypted);
+                          aicam::protocol::PairingCredential* credential,
+                          bool* device_persisted) {
+  const auto persist_device =
+      [device_persisted](const aicam::protocol::TrustedDevice& device,
+                         std::wstring*) {
+        *device_persisted = !device.device_id.empty() &&
+                            device.device_name == "Local Test Phone" &&
+                            device.model == "AiCam Test Sender" &&
+                            device.platform == 1;
+        return *device_persisted;
+      };
+  std::wstring error;
+  return aicam::protocol::RunPairingSession(socket, credential,
+                                             persist_device, &error);
 }
 
 bool RunPhoneHandshake(SOCKET socket,
@@ -297,15 +250,29 @@ bool RunPhoneHandshake(SOCKET socket,
   }
 
   SessionCipher session(keys.phone_to_pc, keys.pc_to_phone, 0, 1);
-  const std::vector<std::uint8_t> request{'p', 'i', 'n', 'g'};
-  if (!session.Encrypt(0x15, request, &proof, &crypto_error) ||
-      !SendFrame(socket, proof) || !ReceiveFrame(socket, &proof)) {
+  if (!ReceiveFrame(socket, &proof)) {
     return false;
   }
-  std::vector<std::uint8_t> response;
-  return session.Decrypt(proof, &response, &crypto_error) &&
-         proof.type == 0x15 &&
-         response == std::vector<std::uint8_t>{'p', 'o', 'n', 'g'};
+  std::vector<std::uint8_t> pair_accept;
+  if (!session.Decrypt(proof, &pair_accept, &crypto_error) ||
+      proof.type != static_cast<std::uint8_t>(MessageType::kAuth) ||
+      pair_accept.size() < 4 + 2 + 1 + 32 || pair_accept[0] != 0x02 ||
+      pair_accept[1] != 0 || pair_accept[2] != 0 || pair_accept[3] != 0) {
+    return false;
+  }
+  const std::size_t device_id_size =
+      (static_cast<std::size_t>(pair_accept[4]) << 8) | pair_accept[5];
+  if (device_id_size == 0 || device_id_size > 128 ||
+      pair_accept.size() != 4 + 2 + device_id_size + 32) {
+    return false;
+  }
+
+  const std::vector<std::uint8_t> pair_stored{0x03, 0, 0, 0};
+  if (!session.Encrypt(static_cast<std::uint8_t>(MessageType::kAuth),
+                       pair_stored, &proof, &crypto_error)) {
+    return false;
+  }
+  return SendFrame(socket, proof);
 }
 
 int RunTcpSelfTest() {
@@ -344,14 +311,19 @@ int RunTcpSelfTest() {
   }
 
   const std::vector<std::uint8_t> auth_secret(32, 0xaa);
+  aicam::protocol::PairingCredential credential;
+  std::copy(auth_secret.begin(), auth_secret.end(), credential.token.begin());
+  credential.expires_at =
+      std::chrono::steady_clock::now() + std::chrono::minutes(5);
   bool server_ok = false;
+  bool device_persisted = false;
   std::thread server([&] {
     SOCKET peer = accept(listener, nullptr, nullptr);
     if (peer == INVALID_SOCKET) {
       return;
     }
     server_ok = SetSocketTimeout(peer) &&
-                RunReceiverHandshake(peer, auth_secret);
+                RunReceiverHandshake(peer, &credential, &device_persisted);
     shutdown(peer, SD_BOTH);
     closesocket(peer);
   });
@@ -369,18 +341,103 @@ int RunTcpSelfTest() {
   closesocket(listener);
   WSACleanup();
 
-  if (!client_ok || !server_ok) {
-    std::cerr << "FAIL: authenticated handshake and encrypted loopback "
-                 "PING/PONG\n";
+  if (!client_ok || !server_ok || !device_persisted || !credential.consumed) {
+    std::cerr << "FAIL: authenticated pairing and encrypted credential "
+                 "confirmation over loopback TCP\n";
     return 1;
   }
-  std::cout << "PASS: P-256 ECDH, transcript-bound role proofs, HKDF session "
-               "keys, and encrypted PING/PONG over loopback TCP. This "
-               "self-test does not implement QR pairing, LAN discovery, or "
-               "phone transport.\n";
+  std::cout << "PASS: receiver authenticated the phone, provisioned and "
+               "persisted a trusted device only after encrypted storage "
+               "confirmation, and consumed the one-time pairing token. "
+               "QR display, LAN discovery, and phone transport remain "
+               "unimplemented.\n";
+  return 0;
+}
+
+int RunUnauthorizedPairingTest() {
+  using namespace aicam::protocol;
+  WSADATA winsock_data{};
+  if (WSAStartup(MAKEWORD(2, 2), &winsock_data) != 0) {
+    std::cerr << "FAIL: WSAStartup for unauthorized-pairing test\n";
+    return 1;
+  }
+  SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (listener == INVALID_SOCKET) {
+    WSACleanup();
+    return 1;
+  }
+  sockaddr_in address{};
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  address.sin_port = 0;
+  if (bind(listener, reinterpret_cast<const sockaddr*>(&address),
+           sizeof(address)) == SOCKET_ERROR ||
+      listen(listener, 1) == SOCKET_ERROR) {
+    closesocket(listener);
+    WSACleanup();
+    return 1;
+  }
+  int address_size = sizeof(address);
+  if (getsockname(listener, reinterpret_cast<sockaddr*>(&address),
+                  &address_size) == SOCKET_ERROR) {
+    closesocket(listener);
+    WSACleanup();
+    return 1;
+  }
+
+  PairingCredential credential;
+  credential.token.fill(0xaa);
+  credential.expires_at =
+      std::chrono::steady_clock::now() + std::chrono::minutes(5);
+  bool server_ok = false;
+  bool device_persisted = false;
+  std::thread server([&] {
+    SOCKET peer = accept(listener, nullptr, nullptr);
+    if (peer == INVALID_SOCKET) {
+      return;
+    }
+    const PersistTrustedDevice persist_device =
+        [&device_persisted](const TrustedDevice&, std::wstring*) {
+          device_persisted = true;
+          return true;
+        };
+    std::wstring error;
+    server_ok =
+        RunPairingSession(peer, &credential, persist_device, &error);
+    shutdown(peer, SD_BOTH);
+    closesocket(peer);
+  });
+
+  SOCKET client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  std::vector<std::uint8_t> wrong_secret(32, 0xbb);
+  const bool connected =
+      client != INVALID_SOCKET && SetSocketTimeout(client) &&
+      connect(client, reinterpret_cast<const sockaddr*>(&address),
+              sizeof(address)) != SOCKET_ERROR;
+  const bool client_ok =
+      connected && RunPhoneHandshake(client, wrong_secret);
+  if (client != INVALID_SOCKET) {
+    shutdown(client, SD_BOTH);
+    closesocket(client);
+  }
+  server.join();
+  closesocket(listener);
+  WSACleanup();
+
+  if (client_ok || server_ok || device_persisted || credential.consumed) {
+    std::cerr << "FAIL: invalid pairing token was accepted or committed\n";
+    return 1;
+  }
+  std::cout << "PASS: invalid pairing token was rejected before device "
+               "persistence and token consumption.\n";
   return 0;
 }
 
 }  // namespace
 
-int main() { return RunTcpSelfTest(); }
+int main() {
+  if (RunTcpSelfTest() != 0) {
+    return 1;
+  }
+  return RunUnauthorizedPairingTest();
+}
